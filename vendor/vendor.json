@@ -165,5 +165,5 @@
 			"revisionTime": "2017-11-02T20:35:00Z"
 		}
 	],
-	"rootPath": "github.com/newrelic-experts/vmware-esxi-plugin/vsphere-plugin"
+	"rootPath": "github.com/newrelic/nri-vmware-esxi"
 }
