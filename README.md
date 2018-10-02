@@ -12,7 +12,7 @@ VSphere REST Endpoint enabled
 
 ## Configuration
 
-Edit the vsphere-plugin-config.yml configuration file to provide a unique instance name and valid values for (ESXi REST API) url and config_file. Also specify the -insecure flag if the ESXi host certificate is self signed, invalid or expired.
+Edit the vmware-esxi-config.yml configuration file to provide a unique instance name and valid values for (ESXi REST API) url and config_file. Also specify the -insecure flag if the ESXi host certificate is self signed, invalid or expired.
 
 ## Installation
 
@@ -22,15 +22,15 @@ Install the vsphere monitoring plugin
 
 cp -R bin /var/db/newrelic-infra/custom-integrations/
 
-cp vsphere-plugin-definition.yml /var/db/newrelic-infra/custom-integrations/
+cp vmware-esxi-definition.yml /var/db/newrelic-infra/custom-integrations/
 
-cp vsphere-plugin-config.yml.sample  /etc/newrelic-infra/integrations.d/
+cp vmware-esxi-config.yml.sample  /etc/newrelic-infra/integrations.d/
 
 ```
 
 ## Configuration
 
-In order to use the `vsphere-plugin` integration it is required to configure vsphere-plugin-config.yml.sample file. Firstly, rename the file to vsphere-plugin-config.yml. Then, depending on your needs, specify all instances that you want to monitor. Once this is done, restart the Infrastructure agent.
+In order to use the `vmware-esxi` integration it is required to configure vmware-esxi-config.yml.sample file. Firstly, rename the file to vmware-esxi-config.yml. Then, depending on your needs, specify all instances that you want to monitor. Once this is done, restart the Infrastructure agent.
 
 Restart the infrastructure agent
 
@@ -45,7 +45,7 @@ sudo systemctl start newrelic-infra
 Check correct functioning of the plugin by executing it from the command line
 
 ```sh
-Usage of ./bin/nr-vsphere-plugin:
+Usage of ./bin/nr-vmware-esxi:
   -all
         Publish all kind of data (metrics, inventory, events).
   -events
@@ -76,4 +76,5 @@ do so use **ESXHostSystemSample** and **ESXVirtualMachineSample** event types.
 ## Compatibility
 
 * Supported OS: Linux
-* vsphere-plugin versions: Tested with v 6.7
+* VMware versions: Tested with v 6.7
+

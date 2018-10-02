@@ -6,13 +6,13 @@ os: linux
 commands:
   metrics:
     command:
-      - ./bin/nr-vsphere-plugin
+      - ./bin/nr-vmware-esxi
       - --metrics
     interval: 60
 
   inventory:
     command:
-      - ./bin/nr-vsphere-plugin
+      - ./bin/nr-vmware-esxi
       - --inventory
     prefix: config/vsphere
     interval: 60
