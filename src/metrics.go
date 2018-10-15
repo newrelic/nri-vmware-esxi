@@ -41,7 +41,7 @@ func loadConfiguration(file string) (metricDefinitions, error) {
 	configFile, err := os.Open(file)
 	defer configFile.Close()
 	if err != nil {
-		log.Error("Error reading configuration file %s", file, err)
+		log.Error("Error reading configuration file '%s': %v", file, err)
 		return metricDef, err
 	}
 	jsonParser := json.NewDecoder(configFile)
@@ -94,7 +94,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 			log.Info(fmt.Sprintf("Reading configuration file %s", configFile))
 			metricDef, err := loadConfiguration(configFile)
 			if err != nil {
-				log.Error("Error loading configuration from file. Default metric configuration will be used. ", err)
+				log.Error("Error loading configuration from file. Default metric configuration will be used. (%v)", err)
 			} else {
 				hostDef = metricDef.Host
 				log.Debug("Host metrics from configuration = %v", hostDef)
@@ -103,7 +103,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 				resourcePoolDef = metricDef.ResourcePool
 			}
 		} else {
-			log.Fatal(fmt.Errorf("Error loading configuration from file. Configuration file does not exist "))
+			log.Fatal(fmt.Errorf("Error loading configuration from file. Configuration file does not exist"))
 		}
 	}
 
@@ -126,7 +126,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 		for _, host := range hosts {
 			err = executePerfQuery(host.Name(), host.Reference(), "Host System", hostEventType, hostMetricIds, client, integration)
 			if err != nil {
-				log.Error("Error executing performance query", err)
+				log.Error("Error executing performance query: %v", err)
 			}
 		}
 	}
@@ -149,7 +149,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 		for _, vm := range vms {
 			err = executePerfQuery(vm.Name(), vm.Reference(), "Virtual Machine", vmEventType, vmMetricIds, client, integration)
 			if err != nil {
-				log.Error("Error executing performance query", err)
+				log.Error("Error executing performance query: %v", err)
 			}
 		}
 	}
@@ -172,7 +172,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 		for _, resourcePool := range resourcePools {
 			err = executePerfQuery(resourcePool.Name(), resourcePool.Reference(), "ResourcePool", resourcePoolEventType, resourcePoolMetricIds, client, integration)
 			if err != nil {
-				log.Error("Error executing performance query", err)
+				log.Error("Error executing performance query: %v", err)
 			}
 		}
 	}
@@ -195,7 +195,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 		for _, clusterComputeResource := range clusterComputeResources {
 			err = executePerfQuery(clusterComputeResource.Name(), clusterComputeResource.Reference(), "ClusterComputeResource", clusterComputeResourceEventType, clusterComputeResourceMetricIds, client, integration)
 			if err != nil {
-				log.Error("Error executing performance query", err)
+				log.Error("Error executing performance query: %v", err)
 			}
 		}
 	}
@@ -218,7 +218,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 		for _, datastore := range datastores {
 			err = executePerfQuery(datastore.Name(), datastore.Reference(), "Datastore", datastoreEventType, datastoreMetricIds, client, integration)
 			if err != nil {
-				log.Error("Error executing performance query", err)
+				log.Error("Error executing performance query: %v", err)
 			}
 		}
 	}
