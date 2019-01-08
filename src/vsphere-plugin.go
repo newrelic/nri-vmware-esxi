@@ -26,7 +26,7 @@ type argumentList struct {
 
 const (
 	integrationName    = "com.newrelic.vsphere-plugin"
-	integrationVersion = "0.1.0"
+	integrationVersion = "1.0.1"
 )
 
 var args argumentList
