@@ -89,7 +89,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 
 	//Load custom config if configFile flag
 	configFile := args.ConfigFile
-	if configFile != "nil" {
+	if configFile != "" {
 		if fileExists(configFile) {
 			log.Info(fmt.Sprintf("Reading configuration file %s", configFile))
 			metricDef, err := loadConfiguration(configFile)

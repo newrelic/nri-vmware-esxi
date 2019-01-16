@@ -1,5 +1,5 @@
-name: com.newrelic.vsphere-plugin
-description: Reports status and metrics for vsphere-plugin service
+name: com.newrelic.esxi-plugin
+description: Reports status and metrics for Vmware ESXi hosts and virtual machines
 protocol_version: 1
 os: linux
 

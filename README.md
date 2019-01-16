@@ -8,11 +8,7 @@ New Relic has open-sourced this integration to enable monitoring of this technol
 
 ## Requirements
 
-VSphere REST Endpoint enabled
-
-## Configuration
-
-Edit the vmware-esxi-config.yml configuration file to provide a unique instance name and valid values for (ESXi REST API) url and config_file. Also specify the -insecure flag if the ESXi host certificate is self signed, invalid or expired.
+vCenter SDK Endpoint enabled
 
 ## Installation
 
@@ -30,7 +26,9 @@ cp vmware-esxi-config.yml.sample  /etc/newrelic-infra/integrations.d/
 
 ## Configuration
 
-In order to use the `vmware-esxi` integration it is required to configure vmware-esxi-config.yml.sample file. Firstly, rename the file to vmware-esxi-config.yml. Then, depending on your needs, specify all instances that you want to monitor. Once this is done, restart the Infrastructure agent.
+In order to use the `vmware-esxi` integration it is required to configure vmware-esxi-config.yml.sample file. Firstly, rename the file to vmware-esxi-config.yml (drop the .sample extension to enable this integration).
+
+Edit the vmware-esxi-config.yml configuration file to provide a unique instance name and valid values for (ESXi URL and login credentials) url, username and password.
 
 Restart the infrastructure agent
 
@@ -46,26 +44,24 @@ Check correct functioning of the plugin by executing it from the command line
 
 ```sh
 Usage of ./bin/nr-vmware-esxi:
-  -all
-        Publish all kind of data (metrics, inventory, events).
-  -events
-        Publish events data.
-  -insecure
-        Don't verify the server's certificate chain [GOVMOMI_INSECURE]
-  -inventory
-        Publish inventory data.
-  -metrics
-        Publish metrics data.
-  -pretty
-        Print pretty formatted JSON.
-  -config_file string
-        Config file containing list of metric names(overrides default config) (default "uses inbuilt config")
-  -datacenter string
-        Datacenter [GOVMOMI_DATACENTER] (default "default")
   -url string
-        ESX or vCenter URL [GOVMOMI_URL] (default "https://username:password@host/sdk")
+      vSphere or vCenter SDK URL (default "https://vcenteripaddress/sdk")
+  -username string
+      The vSphere or vCenter username.
+  -password string
+      The vSphere or vCenter password.
+  -datacenter string
+      Datacenter name to query for metrics. {datacenter name|default|all}. `all` will discover all available datacenters. `default` will only query the default datacenter. (default "default")
+  -config_file string
+      (Optional) Config file containing list of metric names(overrides default config)
+  -insecure
+      Don't verify the server's certificate chain (default true)
+  -metrics
+      Publish metrics data.
+  -pretty
+      Print pretty formatted JSON.
   -verbose
-        Print more information to logs.
+      Print more information to logs.
 ```
 
 ## Usage

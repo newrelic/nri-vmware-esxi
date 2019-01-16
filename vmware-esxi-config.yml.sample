@@ -1,12 +1,14 @@
-integration_name: com.newrelic.vsphere-plugin
+integration_name: com.newrelic.esxi-plugin
 
 instances:
   - name: <INSTANCE IDENTIFIER>
     command: metrics
     arguments:
-      url: https://username:password@host/sdk
+      url: https://host:port/sdk
+      username: 
+      password:
       insecure: true
       datacenter: default
     labels:
-      key1: label_value
+      env: default
 
