@@ -2,16 +2,15 @@ package main
 
 import (
 	"context"
-	"net/url"
+	"os"
 	"strings"
 
 	sdkArgs "github.com/newrelic/infra-integrations-sdk/args"
+	"github.com/newrelic/infra-integrations-sdk/integration"
 	"github.com/newrelic/infra-integrations-sdk/log"
-	"github.com/newrelic/infra-integrations-sdk/sdk"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/vim25/soap"
 )
 
 type argumentList struct {
@@ -26,23 +25,28 @@ type argumentList struct {
 }
 
 const (
-	integrationName    = "com.newrelic.vsphere-plugin"
+	integrationName    = "com.newrelic.vmware-esxi"
 	integrationVersion = "1.0.2"
 )
 
-var args argumentList
+var (
+	args argumentList
+)
 
 var vmDatacenter string
 var vmURL string
 var vmUsername string
 var vmPassword string
 var validateSSL bool
-
 var ctx context.Context
 
 func main() {
-	integration, err := sdk.NewIntegration(integrationName, integrationVersion, &args)
-	fatalIfErr(err)
+	// Create Integration
+	i, err := integration.New(integrationName, integrationVersion, integration.Args(&args))
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
 
 	vmDatacenter = strings.TrimSpace(args.Datacenter)
 	vmURL = strings.TrimSpace(args.URL)
@@ -50,30 +54,32 @@ func main() {
 	vmPassword = strings.TrimSpace(args.Password)
 	validateSSL = true
 
-	if args.All || args.Inventory {
-		fatalIfErr(populateInventory(integration.Inventory))
+	//
+	if args.All() || args.Metrics {
+		err := populateMetrics(i)
+		if err != nil {
+			log.Error(err.Error())
+			os.Exit(1)
+		}
 	}
 
-	if args.All || args.Metrics {
-		fatalIfErr(populateMetrics(integration))
+	if err := i.Publish(); err != nil {
+		log.Error(err.Error())
 	}
-	fatalIfErr(integration.Publish())
 }
 
-func populateMetrics(integration *sdk.Integration) error {
-	// Insert here the logic of your integration to get the metrics data
-	// Ex: ms.SetMetric("requestsPerSecond", 10, metric.GAUGE)
-	// --
+func populateMetrics(integration *integration.Integration) error {
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 
-	// Connect and login to ESX or vCenter
+	// Connect and login to ESXi host or vCenter
 	client, err := newClient(ctx)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err.Error())
+		os.Exit(1)
 	}
-	defer client.Logout(ctx)
+	defer logout(client)
 
 	all := true
 	finder := find.NewFinder(client.Client, all)
@@ -104,75 +110,27 @@ func populateMetrics(integration *sdk.Integration) error {
 	return nil
 }
 
-func populateInventory(inventory sdk.Inventory) error {
-	// Insert here the logic of your integration to get the inventory data
-	// Ex: inventory.SetItem("softwareVersion", "value", "1.0.1")
-	// --
-	return nil
-}
-
-func setCredentials(u *url.URL, un string, pw string) {
-	// Override username if provided
-	if un != "" {
-		var password string
-		var ok bool
-
-		if u.User != nil {
-			password, ok = u.User.Password()
-		}
-
-		if ok {
-			u.User = url.UserPassword(un, password)
-		} else {
-			u.User = url.User(un)
-		}
-	}
-
-	// Override password if provided
-	if pw != "" {
-		var username string
-
-		if u.User != nil {
-			username = u.User.Username()
-		}
-
-		u.User = url.UserPassword(username, pw)
-	}
-}
-
-// newClient creates a govmomi.Client for use in the examples
-func newClient(ctx context.Context) (*govmomi.Client, error) {
-	// Parse URL from string
-	u, err := soap.ParseURL(vmURL)
-	if err != nil {
-		return nil, err
-	}
-
-	// Override username and/or password as required
-	setCredentials(u, vmUsername, vmPassword)
-
-	// Connect and log in to ESX or vCenter
-	return govmomi.NewClient(ctx, u, validateSSL)
-}
-
-func populateMetricsForDatacenter(finder *find.Finder, client *govmomi.Client, dc *object.Datacenter, integration *sdk.Integration) {
+func populateMetricsForDatacenter(finder *find.Finder, client *govmomi.Client, dc *object.Datacenter, integration *integration.Integration) {
 	log.Debug("\n Populating metrics for datacenter [%s] \n", dc.Name())
+
+	// Create datacenter Entity
+	entity, err := integration.Entity("datacenter", dc.Name())
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	// Make future calls local to this datacenter
 	finder.SetDatacenter(dc)
-	var err error
 	err = initPerfCounters(client)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err.Error())
+		os.Exit(1)
 	}
 
-	err = getPerfStats(client, finder, integration)
+	err = getPerfStats(client, finder, entity)
 	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func fatalIfErr(err error) {
-	if err != nil {
-		log.Fatal(err)
+		log.Error(err.Error())
+		os.Exit(1)
 	}
 }

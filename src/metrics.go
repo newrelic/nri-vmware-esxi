@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/newrelic/infra-integrations-sdk/data/metric"
+	"github.com/newrelic/infra-integrations-sdk/integration"
 	"github.com/newrelic/infra-integrations-sdk/log"
-	"github.com/newrelic/infra-integrations-sdk/metric"
-	"github.com/newrelic/infra-integrations-sdk/sdk"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/vim25/methods"
@@ -39,13 +39,17 @@ func fileExists(filePath string) (exists bool) {
 func loadConfiguration(file string) (metricDefinitions, error) {
 	var metricDef metricDefinitions
 	configFile, err := os.Open(file)
-	defer configFile.Close()
+	defer close(configFile)
 	if err != nil {
 		log.Error("Error reading configuration file '%s': %v", file, err)
 		return metricDef, err
 	}
 	jsonParser := json.NewDecoder(configFile)
-	jsonParser.Decode(&metricDef)
+	err = jsonParser.Decode(&metricDef)
+	if err != nil {
+		log.Error("Error reading configuration file '%s': %v", file, err)
+		return metricDef, err
+	}
 	return metricDef, nil
 }
 
@@ -80,14 +84,14 @@ func initPerfCounters(client *govmomi.Client) (err error) {
 	return nil
 }
 
-func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.Integration) (err error) {
+func getPerfStats(client *govmomi.Client, finder *find.Finder, entity *integration.Entity) (err error) {
 	hostDef := hostDefinition
 	vmDef := vmDefinition
 	resourcePoolDef := resourcePoolDefinition
 	clusterComputeResourceDef := clusterComputeResourceDefinition
 	datastoreDef := datastoreDefinition
 
-	//Load custom config if configFile flag
+	//Load custom config if configFile flagd
 	configFile := args.ConfigFile
 	if configFile != "" {
 		if fileExists(configFile) {
@@ -124,7 +128,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 			}
 		}
 		for _, host := range hosts {
-			err = executePerfQuery(host.Name(), host.Reference(), "Host System", hostEventType, hostMetricIds, client, integration)
+			err = executePerfQuery(host.Name(), host.Reference(), "Host System", hostEventType, hostMetricIds, client, entity)
 			if err != nil {
 				log.Error("Error executing performance query: %v", err)
 			}
@@ -147,7 +151,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 			}
 		}
 		for _, vm := range vms {
-			err = executePerfQuery(vm.Name(), vm.Reference(), "Virtual Machine", vmEventType, vmMetricIds, client, integration)
+			err = executePerfQuery(vm.Name(), vm.Reference(), "Virtual Machine", vmEventType, vmMetricIds, client, entity)
 			if err != nil {
 				log.Error("Error executing performance query: %v", err)
 			}
@@ -170,7 +174,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 			}
 		}
 		for _, resourcePool := range resourcePools {
-			err = executePerfQuery(resourcePool.Name(), resourcePool.Reference(), "ResourcePool", resourcePoolEventType, resourcePoolMetricIds, client, integration)
+			err = executePerfQuery(resourcePool.Name(), resourcePool.Reference(), "ResourcePool", resourcePoolEventType, resourcePoolMetricIds, client, entity)
 			if err != nil {
 				log.Error("Error executing performance query: %v", err)
 			}
@@ -193,7 +197,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 			}
 		}
 		for _, clusterComputeResource := range clusterComputeResources {
-			err = executePerfQuery(clusterComputeResource.Name(), clusterComputeResource.Reference(), "ClusterComputeResource", clusterComputeResourceEventType, clusterComputeResourceMetricIds, client, integration)
+			err = executePerfQuery(clusterComputeResource.Name(), clusterComputeResource.Reference(), "ClusterComputeResource", clusterComputeResourceEventType, clusterComputeResourceMetricIds, client, entity)
 			if err != nil {
 				log.Error("Error executing performance query: %v", err)
 			}
@@ -216,7 +220,7 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 			}
 		}
 		for _, datastore := range datastores {
-			err = executePerfQuery(datastore.Name(), datastore.Reference(), "Datastore", datastoreEventType, datastoreMetricIds, client, integration)
+			err = executePerfQuery(datastore.Name(), datastore.Reference(), "Datastore", datastoreEventType, datastoreMetricIds, client, entity)
 			if err != nil {
 				log.Error("Error executing performance query: %v", err)
 			}
@@ -225,9 +229,12 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, integration *sdk.
 	return nil
 }
 
-func executePerfQuery(moName string, moRef types.ManagedObjectReference, moType string, eventType string, metricIDRefs []types.PerfMetricId, client *govmomi.Client, integration *sdk.Integration) (err error) {
-	ms := integration.NewMetricSet(eventType)
-	ms.SetMetric("objectName", moName, metric.ATTRIBUTE)
+func executePerfQuery(moName string, moRef types.ManagedObjectReference, moType string, eventType string, metricIDRefs []types.PerfMetricId, client *govmomi.Client, entity *integration.Entity) (err error) {
+	ms := entity.NewMetricSet(eventType)
+	err = ms.SetMetric("objectName", moName, metric.ATTRIBUTE)
+	if err != nil {
+		log.Error(err.Error())
+	}
 
 	//Note about IntervalId: ESXi Servers sample performance data every 20 seconds. 20-second interval data is called instance data or real-time data
 	//TODO It may be required to also specify begin and end times.
@@ -267,7 +274,10 @@ func executePerfQuery(moName string, moRef types.ManagedObjectReference, moType 
 					log.Warn("Series contains more than one value %d \n", len(metricValueSeries.Value))
 				}
 				if len(metricValueSeries.Value) > 0 {
-					ms.SetMetric(counterInfo, metricValueSeries.Value[0], metric.GAUGE)
+					err = ms.SetMetric(counterInfo, metricValueSeries.Value[0], metric.GAUGE)
+					if err != nil {
+						log.Error(err.Error())
+					}
 				}
 			}
 		default:

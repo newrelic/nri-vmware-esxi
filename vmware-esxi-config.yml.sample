@@ -1,4 +1,4 @@
-integration_name: com.newrelic.esxi-plugin
+integration_name: com.newrelic.vmware-esxi
 
 instances:
   - name: <INSTANCE IDENTIFIER>
@@ -11,4 +11,3 @@ instances:
       datacenter: default
     labels:
       env: default
-

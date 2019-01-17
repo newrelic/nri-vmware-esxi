@@ -1,103 +1,49 @@
 INTEGRATION  := vmware-esxi
-BINARY_NAME  := nr-$(INTEGRATION)
-GO_PKGS      := $(shell go list ./... | grep -v -e "/vendor/" -e "/example")
+BINARY_NAME   = nr-$(INTEGRATION)
+GO_PKGS      := $(shell go list ./... | grep -v "/vendor/")
 GO_FILES     := $(shell find src -type f -name "*.go")
-BUILD_DIR    := ./bin/
-COVERAGE_DIR := ./coverage/
-VALIDATE_DEPS = github.com/golang/lint/golint
-DEPS          = github.com/kardianos/govendor
-TEST_DEPS     = github.com/axw/gocov/gocov github.com/AlekSi/gocov-xml github.com/stretchr/testify/assert
-
-GO       = govendor
-GOLINT   = golint
-GOFMT    = gofmt
-GOVENDOR = govendor
+GOTOOLS       = github.com/kardianos/govendor \
+		gopkg.in/alecthomas/gometalinter.v2 \
+		github.com/axw/gocov/gocov \
+		github.com/AlekSi/gocov-xml \
 
 all: build
 
-build: clean validate test coverage compile
+build: clean validate test compile
 
 clean:
-	@echo "=== $(INTEGRATION) === [ clean            ]: removing binaries and coverage file..."
-	@rm -rfv $(BUILD_DIR)/* $(COVERAGE_DIR)/*
+	@echo "=== $(INTEGRATION) === [ clean ]: Removing binaries and coverage file..."
+	@rm -rfv bin coverage.xml
 
-validate-deps:
-	@echo "=== $(INTEGRATION) === [ validate-deps    ]: installing validation dependencies..."
-	@$(GO) get -v $(VALIDATE_DEPS)
+tools:
+	@echo "=== $(INTEGRATION) === [ tools ]: Installing tools required by the project..."
+	@go get $(GOTOOLS)
+	@gometalinter.v2 --install
 
-fmt:
-	@printf "=== $(INTEGRATION) === [ validate-fmt     ]: running gofmt...  "
-# `gofmt` expects files instead of packages. `go fmt` works with
-# packages, but forces -l -w flags.
-	@OUTPUT="$(shell $(GOFMT) -l $(GO_FILES))" ;\
-	if [ -z "$$OUTPUT" ]; then \
-		echo "passed." ;\
-	else \
-		echo "failed. Incorrect syntax in the following files:" ;\
-		echo "$$OUTPUT" ;\
-		exit 1 ;\
-	fi
+tools-update:
+	@echo "=== $(INTEGRATION) === [ tools-update ]: Updating tools required by the project..."
+	@go get -u $(GOTOOLS)
+	@gometalinter.v2 --install
 
-lint:
-	@printf "=== $(INTEGRATION) === [ validate-lint    ]: running golint... "
-	@OUTPUT="$(shell $(GOLINT) $(GO_PKGS) | tr \" \')" ;\
-	if [ -z "$$OUTPUT" ]; then \
-		echo "passed." ;\
-	else \
-		echo "failed. Issues found:" ;\
-		echo "$$OUTPUT" ;\
-		exit 1 ;\
-	fi
+deps: tools
+	@echo "=== $(INTEGRATION) === [ deps ]: Installing package dependencies required by the project..."
+	@govendor sync
 
-vet:
-	@printf "=== $(INTEGRATION) === [ validate-vet     ]: running go vet... "
-	@OUTPUT="$(shell $(GO) vet $(GO_PKGS))" ;\
-	if [ -z "$$OUTPUT" ]; then \
-		echo "passed." ;\
-	else \
-		echo "failed. Issues found:" ;\
-		echo "$$OUTPUT" ;\
-		exit 1;\
-	fi
+validate: deps
+	@echo "=== $(INTEGRATION) === [ validate ]: Validating source code running gometalinter..."
+	@gometalinter.v2 --config=.gometalinter.json ./...
 
-validate-only: fmt lint vet
-validate: validate-deps validate-only
+validate-all: deps
+	@echo "=== $(INTEGRATION) === [ validate ]: Validating source code running gometalinter..."
+	@gometalinter.v2 --config=.gometalinter.json --enable=interfacer --enable=gosimple ./...
 
-compile-deps:
-	@echo "=== $(INTEGRATION) === [ compile-deps     ]: installing build dependencies..."
-	@$(GO) get $(DEPS)
-	@$(GOVENDOR) sync
+compile: deps
+	@echo "=== $(INTEGRATION) === [ compile ]: Building $(BINARY_NAME)..."
+	@go build -o bin/$(BINARY_NAME) ./src
 
-compile-only:
-	@echo "=== $(INTEGRATION) === [ compile          ]: building $(BINARY_NAME)..."
-	@$(GO) build -o $(BUILD_DIR)/$(BINARY_NAME) $(GO_FILES)
+test: deps
+	@echo "=== $(INTEGRATION) === [ test ]: Running unit tests..."
+	@gocov test $(GO_PKGS) | gocov-xml > coverage.xml
 
-compile: compile-deps compile-only
+.PHONY: all build clean tools tools-update deps validate compile test
 
-coverage:
-	@echo "=== $(INTEGRATION) === [ coverage         ]: generating coverage results..."
-	@rm -rf $(COVERAGE_DIR)/*
-	@for d in $(GO_PKGS); do \
-		pkg=`basename $$d` ;\
-		$(GO) test -coverprofile $(COVERAGE_DIR)/$$pkg.tmp $$d ;\
-	done
-	@echo 'mode: set' > $(COVERAGE_DIR)/coverage.out
-	@cat $(COVERAGE_DIR)/*.tmp | grep -v 'mode: set' >> $(COVERAGE_DIR)/coverage.out
-	@$(GO) tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html
-
-test-deps: compile-deps
-	@echo "=== $(INTEGRATION) === [ test-deps        ]: installing testing dependencies..."
-	@$(GO) get -v $(TEST_DEPS)
-
-test-unit:
-	@echo "=== $(INTEGRATION) === [ unit-test        ]: running unit tests..."
-	@$(GO) test -tags unit $(GO_PKGS)
-
-test-integration:
-	@echo "=== $(INTEGRATION) === [ integration-test ]: running integrtation tests..."
-	@$(GO) test -tags integration $(GO_PKGS)
-
-test-only: test-unit test-integration
-test: test-deps test-only
-
-.PHONY: all build clean coverage fmt lint vet validate-deps validate-only validate compile-deps compile-only compile test-deps test-unit test-integration test-only test

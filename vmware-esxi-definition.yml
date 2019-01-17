@@ -1,5 +1,5 @@
-name: com.newrelic.esxi-plugin
-description: Reports status and metrics for Vmware ESXi hosts and virtual machines
+name: com.newrelic.vmware-esxi
+description: Reports status and metrics for vmware-esxi service
 protocol_version: 1
 os: linux
 
@@ -8,11 +8,16 @@ commands:
     command:
       - ./bin/nr-vmware-esxi
       - --metrics
-    interval: 60
+    interval: 30
 
   inventory:
     command:
       - ./bin/nr-vmware-esxi
       - --inventory
-    prefix: config/vsphere
-    interval: 60
+    prefix: config/nr-vmware-esxi
+    interval: 30
+  events:
+    command:
+    - ./bin/nr-vmware-esxi
+    - --events
+    interval: 30
