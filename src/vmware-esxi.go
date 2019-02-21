@@ -26,7 +26,7 @@ type argumentList struct {
 
 const (
 	integrationName    = "com.newrelic.vmware-esxi"
-	integrationVersion = "1.0.2"
+	integrationVersion = "1.1.0"
 )
 
 var (
@@ -54,18 +54,45 @@ func main() {
 	vmPassword = strings.TrimSpace(args.Password)
 	validateSSL = true
 
-	//
 	if args.All() || args.Metrics {
 		err := populateMetrics(i)
 		if err != nil {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
+		if err := i.Publish(); err != nil {
+			log.Error(err.Error())
+		}
+	} else if args.Events {
+		err := populateEvents(i)
+		if err != nil {
+			log.Error(err.Error())
+			os.Exit(1)
+		}
+	}
+}
+
+func populateEvents(integration *integration.Integration) error {
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+
+	// Connect and login to ESXi host or vCenter
+	client, err := newClient(ctx)
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+	defer logout(client)
+
+	e := NewEventListener(ctx, client, integration)
+	err = e.createEventListeners()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
 	}
 
-	if err := i.Publish(); err != nil {
-		log.Error(err.Error())
-	}
+	return nil
 }
 
 func populateMetrics(integration *integration.Integration) error {

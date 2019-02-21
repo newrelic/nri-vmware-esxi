@@ -1,5 +1,5 @@
 {
-    "host": [	
+    "host": [
         "cpu.coreUtilization.average",
         "cpu.coreUtilization.minimum",
         "cpu.coreUtilization.maximum",
@@ -208,7 +208,10 @@
         "net.usage.average",
         "net.usage.minimum",
         "net.usage.maximum",
-        "net.usage.none"
+        "net.usage.none",
+        "power.power.average",
+        "power.powerCap.average",
+        "power.energy.summation"
     ],
     "vm": [
         "cpu.costop.summation",
@@ -371,7 +374,9 @@
         "net.usage.average",
         "net.usage.minimum",
         "net.usage.maximum",
-        "net.usage.none"
+        "net.usage.none",
+        "power.power.average",
+        "power.energy.summation"
     ],
     "resourcePool": [
         "cpu.usagemhz.average",
