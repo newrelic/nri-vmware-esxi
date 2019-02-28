@@ -105,6 +105,9 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, entity *integrati
 				vmDef = metricDef.VM
 				log.Debug("VM metrics from configuration= %v", vmDef)
 				resourcePoolDef = metricDef.ResourcePool
+				log.Debug("Resource Pool metrics from configuration= %v", resourcePoolDef)
+				datastoreDef = metricDef.Datastore
+				log.Debug("Datastore metrics from configuration= %v", datastoreDef)
 			}
 		} else {
 			log.Fatal(fmt.Errorf("Error loading configuration from file. Configuration file does not exist"))
