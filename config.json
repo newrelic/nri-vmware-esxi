@@ -404,15 +404,10 @@
 
     ],
     "datastore": [
-        "datastore.busResets.summation",
-        "datastore.commandsAborted.summation",
-        "disk.busResets.summation",
-        "disk.capacity.contention.average",
-        "disk.capacity.provisioned.average",
-        "disk.capacity.usage.average",
+        "disk.used.latest",
+        "disk.capacity.latest",
+        "disk.provisioned.latest",
         "disk.numberReadAveraged.average",
-        "disk.numberWriteAveraged.average",
-        "storageAdapter.busResets.summation",
-        "storageAdapter.commandsAborted.summation"
+        "disk.numberWriteAveraged.average"
     ]
 }
