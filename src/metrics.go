@@ -85,11 +85,7 @@ func initPerfCounters(client *govmomi.Client) (err error) {
 }
 
 func getPerfStats(client *govmomi.Client, finder *find.Finder, entity *integration.Entity) (err error) {
-	hostDef := hostDefinition
-	vmDef := vmDefinition
-	resourcePoolDef := resourcePoolDefinition
-	clusterComputeResourceDef := clusterComputeResourceDefinition
-	datastoreDef := datastoreDefinition
+	var hostDef, vmDef, resourcePoolDef, clusterComputeResourceDef, datastoreDef []string
 
 	//Load custom config if configFile flagd
 	configFile := args.ConfigFile
@@ -112,6 +108,13 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, entity *integrati
 		} else {
 			log.Fatal(fmt.Errorf("Error loading configuration from file. Configuration file does not exist"))
 		}
+	} else {
+		//use defaults from metrics_definition.go
+		hostDef = hostDefinition
+		vmDef = vmDefinition
+		resourcePoolDef = resourcePoolDefinition
+		clusterComputeResourceDef = clusterComputeResourceDefinition
+		datastoreDef = datastoreDefinition
 	}
 
 	//Query host system metrics
@@ -127,15 +130,17 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, entity *integrati
 				metricID := types.PerfMetricId{CounterId: counterID, Instance: hostInstancesFilter}
 				hostMetricIds = append(hostMetricIds, metricID)
 			} else {
-				log.Warn("Unable to find Counter ID for [%s] of managed object [%s]", fullCounterName, "Host System")
+				log.Warn("Unable to find [%s] counter: [%s]", "Host System", fullCounterName)
 			}
 		}
 		for _, host := range hosts {
+			log.Debug("Querying host metrics for " + host.Name())
 			err = executePerfQuery(host.Name(), host.Reference(), "Host System", hostEventType, hostMetricIds, client, entity)
 			if err != nil {
 				log.Error("Error executing performance query: %v", err)
 			}
 		}
+
 	}
 
 	//Query virtual machine metrics
@@ -150,15 +155,17 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, entity *integrati
 				metricID := types.PerfMetricId{CounterId: counterID, Instance: vmInstancesFilter}
 				vmMetricIds = append(vmMetricIds, metricID)
 			} else {
-				log.Warn("Unable to find Counter ID for [%s] of managed object [%s]", fullCounterName, "Virtual Machine")
+				log.Warn("Unable to find [%s] counter: [%s]", "Virtual Machine", fullCounterName)
 			}
 		}
 		for _, vm := range vms {
+			log.Debug("Querying virtual machine metrics for " + vm.Name())
 			err = executePerfQuery(vm.Name(), vm.Reference(), "Virtual Machine", vmEventType, vmMetricIds, client, entity)
 			if err != nil {
 				log.Error("Error executing performance query: %v", err)
 			}
 		}
+
 	}
 
 	//Query resource pool metrics
@@ -173,15 +180,17 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, entity *integrati
 				metricID := types.PerfMetricId{CounterId: counterID, Instance: resourcePoolInstancesFilter}
 				resourcePoolMetricIds = append(resourcePoolMetricIds, metricID)
 			} else {
-				log.Warn("Unable to find Counter ID for [%s] of managed object [%s]", fullCounterName, "Resource Pool")
+				log.Warn("Unable to find [%s] counter: [%s]", "Resource Pool", fullCounterName)
 			}
 		}
 		for _, resourcePool := range resourcePools {
+			log.Debug("Querying resource pool metrics for " + resourcePool.Name())
 			err = executePerfQuery(resourcePool.Name(), resourcePool.Reference(), "ResourcePool", resourcePoolEventType, resourcePoolMetricIds, client, entity)
 			if err != nil {
 				log.Error("Error executing performance query: %v", err)
 			}
 		}
+
 	}
 
 	//Query clusterComputeResource  metrics
@@ -196,15 +205,18 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, entity *integrati
 				metricID := types.PerfMetricId{CounterId: counterID, Instance: clusterComputeResourceInstancesFilter}
 				clusterComputeResourceMetricIds = append(clusterComputeResourceMetricIds, metricID)
 			} else {
-				log.Warn("Unable to find Counter ID for [%s] of managed object [%s]", fullCounterName, "Cluster Compute Resource")
+				log.Warn("Unable to find [%s] counter: [%s]", "Cluster Compute Resource", fullCounterName)
 			}
 		}
+
 		for _, clusterComputeResource := range clusterComputeResources {
+			log.Debug("Querying cluster compute resource metrics for " + clusterComputeResource.Name())
 			err = executePerfQuery(clusterComputeResource.Name(), clusterComputeResource.Reference(), "ClusterComputeResource", clusterComputeResourceEventType, clusterComputeResourceMetricIds, client, entity)
 			if err != nil {
 				log.Error("Error executing performance query: %v", err)
 			}
 		}
+
 	}
 
 	//Query datastore metrics
@@ -219,15 +231,17 @@ func getPerfStats(client *govmomi.Client, finder *find.Finder, entity *integrati
 				metricID := types.PerfMetricId{CounterId: counterID, Instance: datastoreInstancesFilter}
 				datastoreMetricIds = append(datastoreMetricIds, metricID)
 			} else {
-				log.Warn("Unable to find Counter ID for [%s] of managed object [%s]", fullCounterName, "Datastore")
+				log.Warn("Unable to find [%s] counter: [%s]", "Datastore", fullCounterName)
 			}
 		}
 		for _, datastore := range datastores {
+			log.Debug("Querying datastore metrics for " + datastore.Name())
 			err = executePerfQuery(datastore.Name(), datastore.Reference(), "Datastore", datastoreEventType, datastoreMetricIds, client, entity)
 			if err != nil {
 				log.Error("Error executing performance query: %v", err)
 			}
 		}
+
 	}
 	return nil
 }
@@ -256,6 +270,7 @@ func executePerfQuery(moName string, moRef types.ManagedObjectReference, moType 
 	retrievedStats, _ := methods.QueryPerf(ctx, client, &query)
 	if retrievedStats == nil || len(retrievedStats.Returnval) == 0 {
 		log.Debug("No results returned from query execution for %s[ %s ]", moType, moName)
+		fmt.Println("nothing returned")
 		return nil
 	}
 	singleEntityPerfStats := retrievedStats.Returnval[0]
@@ -268,11 +283,6 @@ func executePerfQuery(moName string, moRef types.ManagedObjectReference, moType 
 			//
 			counterInfo, ok := performanceMetricIDMap[metricValueSeries.Id.CounterId]
 			if ok {
-				/*
-					for _, counterValue := range v.Value {
-						fmt.Printf("instance=%v, %v=%d", v.Id.Instance, counterName, counterValue)
-					}
-				*/
 				if len(metricValueSeries.Value) > 1 {
 					log.Warn("Series contains more than one value %d \n", len(metricValueSeries.Value))
 				}

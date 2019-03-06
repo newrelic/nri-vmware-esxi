@@ -382,33 +382,7 @@ var vmDefinition = []string{
 
 var resourcePoolEventType = "ESXResourcePoolSample"
 var resourcePoolInstancesFilter = "*"
-var resourcePoolDefinition = []string{
-	"cpu.usagemhz.average",
-	"cpu.usagemhz.minimum",
-	"cpu.usagemhz.maximum",
-	"cpu.usagemhz.none",
-	"mem.capacity.contention.average",
-	"mem.capacity.entitlement.average",
-	"mem.capacity.provisioned.average",
-	"mem.capacity.usable.average",
-	"mem.capacity.usage.average",
-	"mem.consumed.average",
-	"mem.consumed.minimum",
-	"mem.consumed.maximum",
-	"mem.consumed.none",
-	"mem.overhead.average",
-	"mem.overhead.minimum",
-	"mem.overhead.maximum",
-	"mem.overhead.none",
-	"mem.vmmemctl.average",
-	"mem.vmmemctl.minimum",
-	"mem.vmmemctl.maximum",
-	"mem.vmmemctl.none",
-	"disk.throughput.contention.average",
-	"disk.throughput.usage.average",
-	"net.throughput.contention.summation",
-	"net.throughput.usage.average",
-}
+var resourcePoolDefinition = []string{}
 
 var clusterComputeResourceEventType = "ESXClusterComputeSample"
 var clusterComputeResourceInstancesFilter = "*"
@@ -416,15 +390,4 @@ var clusterComputeResourceDefinition = []string{}
 
 var datastoreEventType = "ESXDatastoreSample"
 var datastoreInstancesFilter = "*"
-var datastoreDefinition = []string{
-	"datastore.busResets.summation",
-	"datastore.commandsAborted.summation",
-	"disk.busResets.summation",
-	"disk.capacity.contention.average",
-	"disk.capacity.provisioned.average",
-	"disk.capacity.usage.average",
-	"disk.numberReadAveraged.average",
-	"disk.numberWriteAveraged.average",
-	"storageAdapter.busResets.summation",
-	"storageAdapter.commandsAborted.summation",
-}
+var datastoreDefinition = []string{}
