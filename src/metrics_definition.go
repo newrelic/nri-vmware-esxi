@@ -1,8 +1,6 @@
 package main
 
-var hostEventType = "ESXHostSystemSample"
-var hostInstancesFilter = ""
-var hostDefinition = []string{
+var defaultHostCounters = []string{
 	"cpu.coreUtilization.average",
 	"cpu.coreUtilization.minimum",
 	"cpu.coreUtilization.maximum",
@@ -214,9 +212,7 @@ var hostDefinition = []string{
 	"net.usage.none",
 }
 
-var vmEventType = "ESXVirtualMachineSample"
-var vmInstancesFilter = "*"
-var vmDefinition = []string{
+var defaultVMCounters = []string{
 	"cpu.costop.summation",
 	"cpu.demand.average",
 	"cpu.demandEntitlementRatio.latest",
@@ -379,15 +375,3 @@ var vmDefinition = []string{
 	"net.usage.maximum",
 	"net.usage.none",
 }
-
-var resourcePoolEventType = "ESXResourcePoolSample"
-var resourcePoolInstancesFilter = "*"
-var resourcePoolDefinition = []string{}
-
-var clusterComputeResourceEventType = "ESXClusterComputeSample"
-var clusterComputeResourceInstancesFilter = "*"
-var clusterComputeResourceDefinition = []string{}
-
-var datastoreEventType = "ESXDatastoreSample"
-var datastoreInstancesFilter = "*"
-var datastoreDefinition = []string{}

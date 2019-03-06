@@ -119,6 +119,18 @@
 			"revisionTime": "2019-01-08T21:41:03Z"
 		},
 		{
+			"checksumSHA1": "KZYKxbTODsyOc7EtmMuBwiXHAmQ=",
+			"path": "github.com/vmware/govmomi/units",
+			"revision": "19f9dd02bc6e942a11dd94d984593aa3d66aa8fe",
+			"revisionTime": "2019-03-06T00:42:32Z"
+		},
+		{
+			"checksumSHA1": "Z6i/BdS9A2NZnvOAz9gvzu5oLAI=",
+			"path": "github.com/vmware/govmomi/view",
+			"revision": "19f9dd02bc6e942a11dd94d984593aa3d66aa8fe",
+			"revisionTime": "2019-03-06T00:42:32Z"
+		},
+		{
 			"checksumSHA1": "7TYb0QwZ9DawKt89GlGABc9ufco=",
 			"path": "github.com/vmware/govmomi/vim25",
 			"revision": "c94f5f3aed1c44b3c977bd44a9679a3dd1733616",

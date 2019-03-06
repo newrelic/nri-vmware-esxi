@@ -30,7 +30,10 @@ const (
 )
 
 var (
-	args argumentList
+	args          argumentList
+	hostCounters  []string
+	vmCounters    []string
+	rpoolCounters []string
 )
 
 var vmDatacenter string
@@ -53,13 +56,27 @@ func main() {
 	vmUsername = strings.TrimSpace(args.Username)
 	vmPassword = strings.TrimSpace(args.Password)
 	validateSSL = true
+	configFile := args.ConfigFile
+
+	if configFile == "" {
+		//use defaults from metrics_definition.go
+		hostCounters = defaultHostCounters
+		vmCounters = defaultVMCounters
+		rpoolCounters = []string{}
+	} else {
+		err = parseConfigFile(configFile)
+		if err != nil {
+			log.Error(err.Error())
+			os.Exit(1)
+		}
+	}
 
 	//
 	if args.All() || args.Metrics {
 		err := populateMetrics(i)
 		if err != nil {
 			log.Error(err.Error())
-			os.Exit(1)
+			os.Exit(2)
 		}
 	}
 
@@ -77,7 +94,7 @@ func populateMetrics(integration *integration.Integration) error {
 	client, err := newClient(ctx)
 	if err != nil {
 		log.Error(err.Error())
-		os.Exit(1)
+		os.Exit(3)
 	}
 	defer logout(client)
 
@@ -117,20 +134,49 @@ func populateMetricsForDatacenter(finder *find.Finder, client *govmomi.Client, d
 	entity, err := integration.Entity("datacenter", dc.Name())
 	if err != nil {
 		log.Error(err.Error())
-		os.Exit(1)
+		os.Exit(4)
 	}
 
 	// Make future calls local to this datacenter
 	finder.SetDatacenter(dc)
-	err = initPerfCounters(client)
+
+	collector := &collector{
+		client:       client,
+		entity:       entity,
+		finder:       finder,
+		metricFilter: "*",
+	}
+	err = collector.initCounterMetadata()
 	if err != nil {
 		log.Error(err.Error())
-		os.Exit(1)
+		os.Exit(5)
 	}
 
-	err = getPerfStats(client, finder, entity)
+	hosts, err := getHostSystems(finder)
 	if err != nil {
 		log.Error(err.Error())
-		os.Exit(1)
 	}
+	err = collector.collect("Host System", "ESXHostSystemSample", hosts, hostCounters)
+	if err != nil {
+		log.Error("Failed to collect Host System metrics: %v\n", err)
+	}
+
+	vms, err := getVMs(finder)
+	if err != nil {
+		log.Error(err.Error())
+	}
+	err = collector.collect("Virtual Machine", "ESXVirtualMachineSample", vms, vmCounters)
+	if err != nil {
+		log.Error("Failed to collect Virtual Machine metrics: %v\n", err)
+	}
+
+	resourcePools, err := getResourcePools(finder)
+	if err != nil {
+		log.Error(err.Error())
+	}
+	err = collector.collect("Resource Pool", "ESXResourcePoolSample", resourcePools, rpoolCounters)
+	if err != nil {
+		log.Error("Failed to collect Resource Pool metrics: %v\n", err)
+	}
+
 }
