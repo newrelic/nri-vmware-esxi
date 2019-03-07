@@ -1,12 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/vmware/govmomi/find"
 )
 
-func getHostSystems(finder *find.Finder) ([]managedEntity, error) {
+func getHostSystems(ctx context.Context, finder *find.Finder) ([]managedEntity, error) {
 	hosts, err := finder.HostSystemList(ctx, "*")
 	if err != nil {
 		fmt.Printf("Failed to retrieve %s list: %v\n", "Host System", err)
@@ -19,7 +20,7 @@ func getHostSystems(finder *find.Finder) ([]managedEntity, error) {
 	return hostsInstances, nil
 }
 
-func getVMs(finder *find.Finder) ([]managedEntity, error) {
+func getVMs(ctx context.Context, finder *find.Finder) ([]managedEntity, error) {
 	vms, err := finder.VirtualMachineList(ctx, "*")
 	if err != nil {
 		fmt.Printf("Failed to retrieve %s list: %v\n", "Virtual Machine", err)
@@ -32,7 +33,7 @@ func getVMs(finder *find.Finder) ([]managedEntity, error) {
 	return vmInstances, nil
 }
 
-func getResourcePools(finder *find.Finder) ([]managedEntity, error) {
+func getResourcePools(ctx context.Context, finder *find.Finder) ([]managedEntity, error) {
 	rpools, err := finder.ResourcePoolList(ctx, "*")
 	if err != nil {
 		fmt.Printf("Failed to retrieve %s list: %v\n", "Resource Pool", err)
@@ -43,4 +44,17 @@ func getResourcePools(finder *find.Finder) ([]managedEntity, error) {
 		rpoolInstances = append(rpoolInstances, rpool)
 	}
 	return rpoolInstances, nil
+}
+
+func getDatastores(ctx context.Context, finder *find.Finder) ([]managedEntity, error) {
+	dss, err := finder.DatastoreList(ctx, "*")
+	if err != nil {
+		fmt.Printf("Failed to retrieve %s list: %v\n", "Datastore", err)
+		return nil, err
+	}
+	var dsInstances []managedEntity
+	for _, ds := range dss {
+		dsInstances = append(dsInstances, ds)
+	}
+	return dsInstances, nil
 }

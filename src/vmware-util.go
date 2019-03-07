@@ -61,7 +61,7 @@ func close(c io.Closer) {
 	}
 }
 
-func logout(client *govmomi.Client) {
+func logout(ctx context.Context, client *govmomi.Client) {
 	err := client.Logout(ctx)
 	if err != nil {
 		log.Error(err.Error())

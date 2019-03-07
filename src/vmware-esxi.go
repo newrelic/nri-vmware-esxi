@@ -34,6 +34,7 @@ var (
 	hostCounters  []string
 	vmCounters    []string
 	rpoolCounters []string
+	dsCounters    []string
 )
 
 var vmDatacenter string
@@ -41,7 +42,6 @@ var vmURL string
 var vmUsername string
 var vmPassword string
 var validateSSL bool
-var ctx context.Context
 
 func main() {
 	// Create Integration
@@ -63,6 +63,7 @@ func main() {
 		hostCounters = defaultHostCounters
 		vmCounters = defaultVMCounters
 		rpoolCounters = []string{}
+		dsCounters = []string{}
 	} else {
 		err = parseConfigFile(configFile)
 		if err != nil {
@@ -87,7 +88,7 @@ func main() {
 
 func populateMetrics(integration *integration.Integration) error {
 	var cancel context.CancelFunc
-	ctx, cancel = context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Connect and login to ESXi host or vCenter
@@ -96,7 +97,7 @@ func populateMetrics(integration *integration.Integration) error {
 		log.Error(err.Error())
 		os.Exit(3)
 	}
-	defer logout(client)
+	defer logout(ctx, client)
 
 	all := true
 	finder := find.NewFinder(client.Client, all)
@@ -108,26 +109,26 @@ func populateMetrics(integration *integration.Integration) error {
 		if err != nil {
 			return err
 		}
-		populateMetricsForDatacenter(finder, client, dc, integration)
+		populateMetricsForDatacenter(ctx, finder, client, dc, integration)
 	} else if vmDatacenter == "all" {
 		dclist, err := finder.DatacenterList(ctx, "*")
 		if err != nil {
 			return err
 		}
 		for _, dcItem := range dclist {
-			populateMetricsForDatacenter(finder, client, dcItem, integration)
+			populateMetricsForDatacenter(ctx, finder, client, dcItem, integration)
 		}
 	} else {
 		dc, err = finder.Datacenter(ctx, vmDatacenter)
 		if err != nil {
 			return err
 		}
-		populateMetricsForDatacenter(finder, client, dc, integration)
+		populateMetricsForDatacenter(ctx, finder, client, dc, integration)
 	}
 	return nil
 }
 
-func populateMetricsForDatacenter(finder *find.Finder, client *govmomi.Client, dc *object.Datacenter, integration *integration.Integration) {
+func populateMetricsForDatacenter(ctx context.Context, finder *find.Finder, client *govmomi.Client, dc *object.Datacenter, integration *integration.Integration) {
 	log.Debug("\n Populating metrics for datacenter [%s] \n", dc.Name())
 
 	// Create datacenter Entity
@@ -146,37 +147,60 @@ func populateMetricsForDatacenter(finder *find.Finder, client *govmomi.Client, d
 		finder:       finder,
 		metricFilter: "*",
 	}
-	err = collector.initCounterMetadata()
+	err = collector.initCounterMetadata(ctx)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(5)
 	}
 
-	hosts, err := getHostSystems(finder)
+	err = populateSummaryMetrics(client)
 	if err != nil {
 		log.Error(err.Error())
 	}
-	err = collector.collect("Host System", "ESXHostSystemSample", hosts, hostCounters)
+
+	hosts, err := getHostSystems(ctx, finder)
+	if err != nil {
+		log.Error(err.Error())
+	}
+	err = collector.collect(ctx, "Host System", "ESXHostSystemSample", hosts, hostCounters)
 	if err != nil {
 		log.Error("Failed to collect Host System metrics: %v\n", err)
 	}
 
-	vms, err := getVMs(finder)
+	vms, err := getVMs(ctx, finder)
 	if err != nil {
 		log.Error(err.Error())
 	}
-	err = collector.collect("Virtual Machine", "ESXVirtualMachineSample", vms, vmCounters)
+	err = collector.collect(ctx, "Virtual Machine", "ESXVirtualMachineSample", vms, vmCounters)
 	if err != nil {
 		log.Error("Failed to collect Virtual Machine metrics: %v\n", err)
 	}
 
-	resourcePools, err := getResourcePools(finder)
+	resourcePools, err := getResourcePools(ctx, finder)
 	if err != nil {
 		log.Error(err.Error())
 	}
-	err = collector.collect("Resource Pool", "ESXResourcePoolSample", resourcePools, rpoolCounters)
+	err = collector.collect(ctx, "Resource Pool", "ESXResourcePoolSample", resourcePools, rpoolCounters)
 	if err != nil {
 		log.Error("Failed to collect Resource Pool metrics: %v\n", err)
 	}
 
+	dss, err := getDatastores(ctx, finder)
+	if err != nil {
+		log.Error(err.Error())
+	}
+	err = collector.collect(ctx, "Datastore", "ESXDatastoreSample", dss, dsCounters)
+	if err != nil {
+		log.Error("Failed to collect Datastore metrics: %v\n", err)
+	}
+
+	/*
+		a, err := finder.ManagedObjectList(ctx, "*")
+		for _, v := range a {
+			fmt.Println("XXX")
+			fmt.Println(v.Object.Reference().Type)
+			fmt.Println(v.Object.Reference().Value)
+			fmt.Println(v.Path)
+		}
+	*/
 }

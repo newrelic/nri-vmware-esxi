@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/vmware/govmomi/find"
@@ -29,7 +30,7 @@ type collector struct {
 var performanceMetricIDMap map[int32]string
 var performanceMetricNameMap map[string]int32
 
-func (c *collector) initCounterMetadata() (err error) {
+func (c *collector) initCounterMetadata(ctx context.Context) (err error) {
 	var perfManager mo.PerformanceManager
 	err = c.client.RetrieveOne(ctx, *c.client.ServiceContent.PerfManager, nil, &perfManager)
 	if err != nil {
@@ -60,7 +61,7 @@ func (c *collector) initCounterMetadata() (err error) {
 	return nil
 }
 
-func (c *collector) collect(entityType string, nrEventType string, instances []managedEntity, counterList []string) error {
+func (c *collector) collect(ctx context.Context, entityType string, nrEventType string, instances []managedEntity, counterList []string) error {
 	var err error
 	perfMetricIds := make([]types.PerfMetricId, 0)
 	for _, fullCounterName := range counterList {
@@ -80,6 +81,25 @@ func (c *collector) collect(entityType string, nrEventType string, instances []m
 		if err != nil {
 			log.Error(err.Error())
 		}
+		summaryMetrics, ok := dsSummary[instance.Name()]
+		if ok {
+			for k, v := range summaryMetrics {
+				switch tv := v.(type) {
+				case string:
+					err = ms.SetMetric(k, tv, metric.ATTRIBUTE)
+					if err != nil {
+						log.Error(err.Error())
+					}
+				case int, int64, int32, float32, float64:
+					err = ms.SetMetric(k, tv, metric.GAUGE)
+					if err != nil {
+						log.Error(err.Error())
+					}
+				default:
+					log.Error("Unknown metric value datatype %T", v)
+				}
+			}
+		}
 
 		//Note about IntervalId: ESXi Servers sample performance data every 20 seconds. 20-second interval data is called instance data or real-time data
 		//TODO It may be required to also specify begin and end times.
@@ -97,8 +117,7 @@ func (c *collector) collect(entityType string, nrEventType string, instances []m
 
 		retrievedStats, _ := methods.QueryPerf(ctx, c.client, &query)
 		if retrievedStats == nil || len(retrievedStats.Returnval) == 0 {
-			log.Debug("No results returned from query execution for %s[ %s ]", entityType, instance.Name())
-			fmt.Println("nothing returned")
+			log.Warn("No results returned from query execution for %s[ %s ]", entityType, instance.Name())
 			return nil
 		}
 		singleEntityPerfStats := retrievedStats.Returnval[0]
