@@ -26,22 +26,17 @@ type argumentList struct {
 
 const (
 	integrationName    = "com.newrelic.vmware-esxi"
-	integrationVersion = "1.0.2"
+	integrationVersion = "1.2.0"
 )
 
 var (
-	args          argumentList
+	args argumentList
+
 	hostCounters  []string
 	vmCounters    []string
 	rpoolCounters []string
 	dsCounters    []string
 )
-
-var vmDatacenter string
-var vmURL string
-var vmUsername string
-var vmPassword string
-var validateSSL bool
 
 func main() {
 	// Create Integration
@@ -51,11 +46,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	vmDatacenter = strings.TrimSpace(args.Datacenter)
-	vmURL = strings.TrimSpace(args.URL)
-	vmUsername = strings.TrimSpace(args.Username)
-	vmPassword = strings.TrimSpace(args.Password)
-	validateSSL = true
 	configFile := args.ConfigFile
 
 	if configFile == "" {
@@ -91,8 +81,15 @@ func populateMetrics(integration *integration.Integration) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	//
+	vmDatacenter := strings.TrimSpace(args.Datacenter)
+	vmURL := strings.TrimSpace(args.URL)
+	vmUsername := strings.TrimSpace(args.Username)
+	vmPassword := strings.TrimSpace(args.Password)
+	validateSSL := true
+
 	// Connect and login to ESXi host or vCenter
-	client, err := newClient(ctx)
+	client, err := newClient(ctx, vmURL, vmUsername, vmPassword, validateSSL)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(3)
@@ -141,21 +138,22 @@ func populateMetricsForDatacenter(ctx context.Context, finder *find.Finder, clie
 	// Make future calls local to this datacenter
 	finder.SetDatacenter(dc)
 
+	summaryMetrics, err := collectSummaryMetrics(client, dc)
+	if err != nil {
+		log.Error(err.Error())
+	}
+
 	collector := &collector{
-		client:       client,
-		entity:       entity,
-		finder:       finder,
-		metricFilter: "*",
+		client:         client,
+		entity:         entity,
+		finder:         finder,
+		summaryMetrics: summaryMetrics,
+		metricFilter:   "*",
 	}
 	err = collector.initCounterMetadata(ctx)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(5)
-	}
-
-	err = populateSummaryMetrics(client)
-	if err != nil {
-		log.Error(err.Error())
 	}
 
 	hosts, err := getHostSystems(ctx, finder)

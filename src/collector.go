@@ -21,14 +21,14 @@ type managedEntity interface {
 }
 
 type collector struct {
-	client       *govmomi.Client
-	entity       *integration.Entity
-	finder       *find.Finder
-	metricFilter string
+	client                   *govmomi.Client
+	entity                   *integration.Entity
+	finder                   *find.Finder
+	summaryMetrics           map[string]map[string]interface{}
+	metricFilter             string
+	performanceMetricIDMap   map[int32]string
+	performanceMetricNameMap map[string]int32
 }
-
-var performanceMetricIDMap map[int32]string
-var performanceMetricNameMap map[string]int32
 
 func (c *collector) initCounterMetadata(ctx context.Context) (err error) {
 	var perfManager mo.PerformanceManager
@@ -41,8 +41,8 @@ func (c *collector) initCounterMetadata(ctx context.Context) (err error) {
 	//log.Debug(interval[0].SamplingPeriod)
 	perfCounters := perfManager.PerfCounter
 
-	performanceMetricIDMap = make(map[int32]string)
-	performanceMetricNameMap = make(map[string]int32)
+	c.performanceMetricIDMap = make(map[int32]string)
+	c.performanceMetricNameMap = make(map[string]int32)
 
 	printCounters := args.LogAvailableCounters
 	if printCounters {
@@ -52,8 +52,8 @@ func (c *collector) initCounterMetadata(ctx context.Context) (err error) {
 		groupInfo := perfCounter.GroupInfo.GetElementDescription()
 		nameInfo := perfCounter.NameInfo.GetElementDescription()
 		fullCounterName := groupInfo.Key + "." + nameInfo.Key + "." + fmt.Sprint(perfCounter.RollupType)
-		performanceMetricNameMap[fullCounterName] = perfCounter.Key
-		performanceMetricIDMap[perfCounter.Key] = fullCounterName
+		c.performanceMetricNameMap[fullCounterName] = perfCounter.Key
+		c.performanceMetricIDMap[perfCounter.Key] = fullCounterName
 		if printCounters {
 			fmt.Printf("\t %s [%d]\n", fullCounterName, perfCounter.Level)
 		}
@@ -65,7 +65,7 @@ func (c *collector) collect(ctx context.Context, entityType string, nrEventType 
 	var err error
 	perfMetricIds := make([]types.PerfMetricId, 0)
 	for _, fullCounterName := range counterList {
-		counterID, ok := performanceMetricNameMap[fullCounterName]
+		counterID, ok := c.performanceMetricNameMap[fullCounterName]
 		if ok {
 			metricID := types.PerfMetricId{CounterId: counterID, Instance: c.metricFilter}
 			perfMetricIds = append(perfMetricIds, metricID)
@@ -77,16 +77,31 @@ func (c *collector) collect(ctx context.Context, entityType string, nrEventType 
 		log.Debug(fmt.Sprintf("Querying %s for %s", entityType, instance.Name()))
 
 		ms := c.entity.NewMetricSet(nrEventType)
+		err = ms.SetMetric("name", instance.Name(), metric.ATTRIBUTE)
+		if err != nil {
+			log.Error(err.Error())
+		}
+		//TODO remove this redundant attribute
 		err = ms.SetMetric("objectName", instance.Name(), metric.ATTRIBUTE)
 		if err != nil {
 			log.Error(err.Error())
 		}
-		summaryMetrics, ok := dsSummary[instance.Name()]
+		//add in summary metrics previously collected
+		summaryMetrics, ok := c.summaryMetrics[instance.Name()]
 		if ok {
 			for k, v := range summaryMetrics {
 				switch tv := v.(type) {
 				case string:
 					err = ms.SetMetric(k, tv, metric.ATTRIBUTE)
+					if err != nil {
+						log.Error(err.Error())
+					}
+				case bool:
+					var val int
+					if tv {
+						val = 1
+					}
+					err = ms.SetMetric(k, val, metric.GAUGE)
 					if err != nil {
 						log.Error(err.Error())
 					}
@@ -128,7 +143,7 @@ func (c *collector) collect(ctx context.Context, entityType string, nrEventType 
 
 			case *types.PerfMetricIntSeries:
 				//
-				counterInfo, ok := performanceMetricIDMap[metricValueSeries.Id.CounterId]
+				counterInfo, ok := c.performanceMetricIDMap[metricValueSeries.Id.CounterId]
 				if ok {
 					if len(metricValueSeries.Value) > 1 {
 						log.Warn("Series contains more than one value %d \n", len(metricValueSeries.Value))

@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 
+	"github.com/vmware/govmomi/object"
+
 	"github.com/newrelic/infra-integrations-sdk/log"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/view"
@@ -10,17 +12,15 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
-var dsSummary map[string]map[string]interface{}
-
-func populateSummaryMetrics(client *govmomi.Client) error {
+func collectSummaryMetrics(client *govmomi.Client, dc *object.Datacenter) (map[string]map[string]interface{}, error) {
 	ctx := context.Background()
-	dsSummary = make(map[string]map[string]interface{})
+	dsSummary := make(map[string]map[string]interface{})
 	// Create a view of Datastore objects
 	manager := view.NewManager(client.Client)
 
-	view, err := manager.CreateContainerView(ctx, client.ServiceContent.RootFolder, []string{"Datastore", "HostSystem"}, true)
+	view, err := manager.CreateContainerView(ctx, dc.Reference(), []string{"Datastore"}, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -29,15 +29,11 @@ func populateSummaryMetrics(client *govmomi.Client) error {
 		}
 	}()
 
-	// Retrieve summary property for all datastores
-	// Reference: http://pubs.vmware.com/vsphere-60/topic/com.vmware.wssdk.apiref.doc/vim.Datastore.html
 	var dss []mo.Datastore
 	err = view.Retrieve(ctx, []string{"Datastore"}, []string{"summary"}, &dss)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	// Print summary per datastore (see also: govc/datastore/info.go)
 
 	for _, ds := range dss {
 		dsName := ds.Summary.Name
@@ -50,11 +46,14 @@ func populateSummaryMetrics(client *govmomi.Client) error {
 		dsMetrics["ds.url"] = ds.Summary.Url
 		dsMetrics["ds.capacity"] = float64(ds.Summary.Capacity) / (1 << 30)
 		dsMetrics["ds.freespace"] = float64(ds.Summary.FreeSpace) / (1 << 30)
+		dsMetrics["ds.uncommitted"] = float64(ds.Summary.Uncommitted) / (1 << 30)
+		dsMetrics["ds.accessible"] = ds.Summary.Accessible
 
 		switch info := ds.Info.(type) {
 		case *types.NasDatastoreInfo:
-			dsMetrics[info.Nas.RemoteHost] = info.Nas.RemotePath
+			dsMetrics["ds.nas.remoteHost"] = info.Nas.RemoteHost
+			dsMetrics["ds.nas.remotePath"] = info.Nas.RemotePath
 		}
 	}
-	return nil
+	return dsSummary, nil
 }

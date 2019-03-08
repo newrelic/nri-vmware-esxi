@@ -40,18 +40,18 @@ func setCredentials(u *url.URL, un string, pw string) {
 }
 
 // newClient creates a govmomi.Client for use in the examples
-func newClient(ctx context.Context) (*govmomi.Client, error) {
+func newClient(ctx context.Context, vmURL string, vmUsername string, vmPassword string, validateSSL bool) (*govmomi.Client, error) {
 	// Parse URL from string
-	u, err := soap.ParseURL(vmURL)
+	url, err := soap.ParseURL(vmURL)
 	if err != nil {
 		return nil, err
 	}
 
 	// Override username and/or password as required
-	setCredentials(u, vmUsername, vmPassword)
+	setCredentials(url, vmUsername, vmPassword)
 
 	// Connect and log in to ESX or vCenter
-	return govmomi.NewClient(ctx, u, validateSSL)
+	return govmomi.NewClient(ctx, url, validateSSL)
 }
 
 func close(c io.Closer) {
