@@ -39,8 +39,10 @@ func setCredentials(u *url.URL, un string, pw string) {
 	}
 }
 
-// newClient creates a govmomi.Client for use in the examples
-func newClient(ctx context.Context, vmURL string, vmUsername string, vmPassword string, validateSSL bool) (*govmomi.Client, error) {
+// newClient creates a govmomi.Client
+func newClient(vmURL string, vmUsername string, vmPassword string, validateSSL bool) (*govmomi.Client, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	// Parse URL from string
 	url, err := soap.ParseURL(vmURL)
 	if err != nil {
@@ -49,7 +51,6 @@ func newClient(ctx context.Context, vmURL string, vmUsername string, vmPassword 
 
 	// Override username and/or password as required
 	setCredentials(url, vmUsername, vmPassword)
-
 	// Connect and log in to ESX or vCenter
 	return govmomi.NewClient(ctx, url, validateSSL)
 }
@@ -61,7 +62,9 @@ func close(c io.Closer) {
 	}
 }
 
-func logout(ctx context.Context, client *govmomi.Client) {
+func logout(client *govmomi.Client) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	err := client.Logout(ctx)
 	if err != nil {
 		log.Error(err.Error())

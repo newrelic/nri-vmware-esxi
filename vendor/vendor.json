@@ -77,6 +77,12 @@
 			"revisionTime": "2019-01-08T21:41:03Z"
 		},
 		{
+			"checksumSHA1": "VwbWeu4gTr9mDP1I7SStPUvRBb8=",
+			"path": "github.com/vmware/govmomi/event",
+			"revision": "19f9dd02bc6e942a11dd94d984593aa3d66aa8fe",
+			"revisionTime": "2019-03-06T00:42:32Z"
+		},
+		{
 			"checksumSHA1": "xFi1dbYQR8VwSRojdJMdvRGOmIw=",
 			"path": "github.com/vmware/govmomi/find",
 			"revision": "c94f5f3aed1c44b3c977bd44a9679a3dd1733616",

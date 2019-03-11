@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -39,14 +40,20 @@ var (
 )
 
 func main() {
-	// Create Integration
+	var err error
+	// Create Integration (also process args, so this step must be done first)
 	i, err := integration.New(integrationName, integrationVersion, integration.Args(&args))
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	configFile := args.ConfigFile
+	configFile := strings.TrimSpace(args.ConfigFile)
+	datacenter := strings.TrimSpace(args.Datacenter)
+	url := strings.TrimSpace(args.URL)
+	username := strings.TrimSpace(args.Username)
+	password := strings.TrimSpace(args.Password)
+	validateSSL := true
 
 	if configFile == "" {
 		//use defaults from metrics_definition.go
@@ -62,13 +69,19 @@ func main() {
 		}
 	}
 
-	//
-	if args.All() || args.Metrics {
-		err := populateMetrics(i)
-		if err != nil {
-			log.Error(err.Error())
-			os.Exit(2)
-		}
+	// Connect and login to ESXi host or vCenter
+	client, err := newClient(url, username, password, validateSSL)
+	if err != nil {
+		log.Error("unable to create client for " + url)
+		log.Error(err.Error())
+		os.Exit(3)
+	}
+	defer logout(client)
+
+	err = populateMetricsAndInventory(i, client, datacenter)
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(2)
 	}
 
 	if err := i.Publish(); err != nil {
@@ -76,58 +89,36 @@ func main() {
 	}
 }
 
-func populateMetrics(integration *integration.Integration) error {
-	var cancel context.CancelFunc
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	//
-	vmDatacenter := strings.TrimSpace(args.Datacenter)
-	vmURL := strings.TrimSpace(args.URL)
-	vmUsername := strings.TrimSpace(args.Username)
-	vmPassword := strings.TrimSpace(args.Password)
-	validateSSL := true
-
-	// Connect and login to ESXi host or vCenter
-	client, err := newClient(ctx, vmURL, vmUsername, vmPassword, validateSSL)
-	if err != nil {
-		log.Error(err.Error())
-		os.Exit(3)
-	}
-	defer logout(ctx, client)
-
+func populateMetricsAndInventory(i *integration.Integration, client *govmomi.Client, datacenter string) error {
 	all := true
 	finder := find.NewFinder(client.Client, all)
 
-	var dc *object.Datacenter
-	if vmDatacenter == "default" {
+	if datacenter == "default" {
 		// Find one and only datacenter
-		dc, err = finder.DefaultDatacenter(ctx)
+		dc, err := finder.DefaultDatacenter(context.Background())
 		if err != nil {
 			return err
 		}
-		populateMetricsForDatacenter(ctx, finder, client, dc, integration)
-	} else if vmDatacenter == "all" {
-		dclist, err := finder.DatacenterList(ctx, "*")
+		populateMetricsAndInventoryForDC(i, client, dc)
+	} else if datacenter == "all" {
+		dclist, err := finder.DatacenterList(context.Background(), "*")
 		if err != nil {
 			return err
 		}
-		for _, dcItem := range dclist {
-			populateMetricsForDatacenter(ctx, finder, client, dcItem, integration)
+		for _, dc := range dclist {
+			populateMetricsAndInventoryForDC(i, client, dc)
 		}
 	} else {
-		dc, err = finder.Datacenter(ctx, vmDatacenter)
+		dc, err := finder.Datacenter(context.Background(), datacenter)
 		if err != nil {
 			return err
 		}
-		populateMetricsForDatacenter(ctx, finder, client, dc, integration)
+		populateMetricsAndInventoryForDC(i, client, dc)
 	}
 	return nil
 }
 
-func populateMetricsForDatacenter(ctx context.Context, finder *find.Finder, client *govmomi.Client, dc *object.Datacenter, integration *integration.Integration) {
-	log.Debug("\n Populating metrics for datacenter [%s] \n", dc.Name())
-
+func populateMetricsAndInventoryForDC(integration *integration.Integration, client *govmomi.Client, dc *object.Datacenter) {
 	// Create datacenter Entity
 	entity, err := integration.Entity("datacenter", dc.Name())
 	if err != nil {
@@ -135,70 +126,67 @@ func populateMetricsForDatacenter(ctx context.Context, finder *find.Finder, clie
 		os.Exit(4)
 	}
 
-	// Make future calls local to this datacenter
-	finder.SetDatacenter(dc)
-
-	summaryMetrics, err := collectSummaryMetrics(client, dc)
-	if err != nil {
-		log.Error(err.Error())
-	}
-
-	collector := &collector{
-		client:         client,
-		entity:         entity,
-		finder:         finder,
-		summaryMetrics: summaryMetrics,
-		metricFilter:   "*",
-	}
-	err = collector.initCounterMetadata(ctx)
-	if err != nil {
-		log.Error(err.Error())
-		os.Exit(5)
-	}
-
-	hosts, err := getHostSystems(ctx, finder)
-	if err != nil {
-		log.Error(err.Error())
-	}
-	err = collector.collect(ctx, "Host System", "ESXHostSystemSample", hosts, hostCounters)
-	if err != nil {
-		log.Error("Failed to collect Host System metrics: %v\n", err)
-	}
-
-	vms, err := getVMs(ctx, finder)
-	if err != nil {
-		log.Error(err.Error())
-	}
-	err = collector.collect(ctx, "Virtual Machine", "ESXVirtualMachineSample", vms, vmCounters)
-	if err != nil {
-		log.Error("Failed to collect Virtual Machine metrics: %v\n", err)
-	}
-
-	resourcePools, err := getResourcePools(ctx, finder)
-	if err != nil {
-		log.Error(err.Error())
-	}
-	err = collector.collect(ctx, "Resource Pool", "ESXResourcePoolSample", resourcePools, rpoolCounters)
-	if err != nil {
-		log.Error("Failed to collect Resource Pool metrics: %v\n", err)
-	}
-
-	dss, err := getDatastores(ctx, finder)
-	if err != nil {
-		log.Error(err.Error())
-	}
-	err = collector.collect(ctx, "Datastore", "ESXDatastoreSample", dss, dsCounters)
-	if err != nil {
-		log.Error("Failed to collect Datastore metrics: %v\n", err)
-	}
-
 	/*
-		a, err := finder.ManagedObjectList(ctx, "*")
-		for _, v := range a {
-			fmt.Println("XXX")
-			fmt.Println(v.Object.Reference().Type)
-			fmt.Println(v.Object.Reference().Value)
-			fmt.Println(v.Path)
+		if args.All() || args.Events {
+			log.Info("populating inventory for datacenter [%s]", dc.Name())
+			//TODO
+			setupEvents(client, dc)
+
 		}
 	*/
+
+	if args.All() || args.Inventory {
+		log.Info("populating inventory for datacenter [%s]", dc.Name())
+		//TODO
+		hostMetrics, err := populateInventory(client, dc)
+		if err != nil {
+			log.Error(err.Error())
+		}
+		fmt.Println(hostMetrics)
+	}
+
+	if args.All() || args.Metrics {
+		log.Info("populating metrics for datacenter [%s]", dc.Name())
+		summaryMetrics, err := collectSummaryMetrics(client, dc)
+		if err != nil {
+			log.Error(err.Error())
+		}
+
+		finder := find.NewFinder(client.Client, true)
+		// Make future calls local to this datacenter
+		finder.SetDatacenter(dc)
+
+		collector := &collector{
+			client:         client,
+			entity:         entity,
+			finder:         finder,
+			summaryMetrics: summaryMetrics,
+			metricFilter:   "*",
+		}
+		err = collector.initCounterMetadata()
+		if err != nil {
+			log.Error(err.Error())
+			os.Exit(5)
+		}
+
+		err = collector.collect("Host System", "ESXHostSystemSample", hostCounters)
+		if err != nil {
+			log.Error("failed to collect Host System metrics: %v", err)
+		}
+
+		err = collector.collect("Virtual Machine", "ESXVirtualMachineSample", vmCounters)
+		if err != nil {
+			log.Error("failed to collect Virtual Machine metrics: %v", err)
+		}
+
+		err = collector.collect("Resource Pool", "ESXResourcePoolSample", rpoolCounters)
+		if err != nil {
+			log.Error("failed to collect Resource Pool metrics: %v", err)
+		}
+
+		err = collector.collect("Datastore", "ESXDatastoreSample", dsCounters)
+		if err != nil {
+			log.Error("failed to collect Datastore metrics: %v", err)
+		}
+	}
 }

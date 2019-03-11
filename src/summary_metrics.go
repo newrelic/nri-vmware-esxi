@@ -13,7 +13,8 @@ import (
 )
 
 func collectSummaryMetrics(client *govmomi.Client, dc *object.Datacenter) (map[string]map[string]interface{}, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	dsSummary := make(map[string]map[string]interface{})
 	// Create a view of Datastore objects
 	manager := view.NewManager(client.Client)
