@@ -12,7 +12,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
-func collectSummaryMetrics(client *govmomi.Client, dc *object.Datacenter) (map[string]map[string]interface{}, error) {
+func collectDatastoreSummaryAttributes(client *govmomi.Client, dc *object.Datacenter) (map[string]map[string]interface{}, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dsSummary := make(map[string]map[string]interface{})

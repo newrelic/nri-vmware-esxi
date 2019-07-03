@@ -21,6 +21,7 @@ type argumentList struct {
 	Username             string `default:"" help:"The vSphere or vCenter username."`
 	Password             string `default:"" help:"The vSphere or vCenter password."`
 	ConfigFile           string `default:"" help:"Config file containing list of metric names(overrides default config)"`
+	SourceConfig         int    `default:"9" help:"Undocumented"`
 	Insecure             bool   `default:"true" help:"Don't verify the server's certificate chain"`
 	LogAvailableCounters bool   `default:"false" help:"[Trace] Log all available performance counters"`
 }
@@ -28,6 +29,12 @@ type argumentList struct {
 const (
 	integrationName    = "com.newrelic.vmware-esxi"
 	integrationVersion = "1.2.0"
+
+	bitHostSystemPerfMetrics     = 1 // get performance metrics for host system
+	bitVirtualMachinePerfMetrics = 2 // get performance metrics for vm
+	bitDatastorePerfMetrics      = 4 // get performance metrics for datastore
+	bitResourcePoolPerfMetrics   = 8 // get performance metrics for resource pool
+
 )
 
 var (
@@ -37,6 +44,11 @@ var (
 	vmCounters    []string
 	rpoolCounters []string
 	dsCounters    []string
+
+	enableHostSystemPerfMetrics     = true
+	enableVirtualMachinePerfMetrics = true
+	enableDatastorePerfMetrics      = true
+	enableResourcePoolPerfMetrics   = true
 )
 
 func main() {
@@ -54,6 +66,28 @@ func main() {
 	username := strings.TrimSpace(args.Username)
 	password := strings.TrimSpace(args.Password)
 	validateSSL := true
+
+	sourceConfig := args.SourceConfig
+	if (sourceConfig & bitHostSystemPerfMetrics) != 0 {
+		enableHostSystemPerfMetrics = true
+	} else {
+		enableHostSystemPerfMetrics = false
+	}
+	if (sourceConfig & bitVirtualMachinePerfMetrics) != 0 {
+		enableVirtualMachinePerfMetrics = true
+	} else {
+		enableVirtualMachinePerfMetrics = false
+	}
+	if (sourceConfig & bitDatastorePerfMetrics) != 0 {
+		enableDatastorePerfMetrics = true
+	} else {
+		enableDatastorePerfMetrics = false
+	}
+	if (sourceConfig & bitResourcePoolPerfMetrics) != 0 {
+		enableResourcePoolPerfMetrics = true
+	} else {
+		enableResourcePoolPerfMetrics = false
+	}
 
 	if configFile == "" {
 		//use defaults from metrics_definition.go
@@ -147,46 +181,83 @@ func populateMetricsAndInventoryForDC(integration *integration.Integration, clie
 
 	if args.All() || args.Metrics {
 		log.Info("populating metrics for datacenter [%s]", dc.Name())
-		summaryMetrics, err := collectSummaryMetrics(client, dc)
-		if err != nil {
-			log.Error(err.Error())
+
+		//init summary collector
+		summaryCollector := &summaryCollector{
+			client: client,
+			entity: entity,
+			dc:     dc,
 		}
 
+		//init performance collector
 		finder := find.NewFinder(client.Client, true)
 		// Make future calls local to this datacenter
 		finder.SetDatacenter(dc)
 
-		collector := &collector{
+		summaryMetrics, err := collectDatastoreSummaryAttributes(client, dc)
+		if err != nil {
+			log.Error(err.Error())
+		}
+		perfCollector := &perfCollector{
 			client:         client,
 			entity:         entity,
 			finder:         finder,
 			summaryMetrics: summaryMetrics,
 			metricFilter:   "*",
 		}
-		err = collector.initCounterMetadata()
+
+		err = perfCollector.initCounterMetadata()
 		if err != nil {
 			log.Error(err.Error())
 			os.Exit(5)
 		}
 
-		err = collector.collect("Host System", "ESXHostSystemSample", hostCounters)
-		if err != nil {
-			log.Error("failed to collect Host System metrics: %v", err)
+		if enableHostSystemPerfMetrics {
+			err = perfCollector.collect("Host System", "ESXHostSystemSample", hostCounters)
+			if err != nil {
+				log.Error("failed to collect Host System metrics: %v", err)
+			}
+		} else {
+			err = summaryCollector.collectHostMetrics("ESXHostSystemSample")
+			if err != nil {
+				log.Error("failed to collect Host System metrics: %v", err)
+			}
 		}
 
-		err = collector.collect("Virtual Machine", "ESXVirtualMachineSample", vmCounters)
-		if err != nil {
-			log.Error("failed to collect Virtual Machine metrics: %v", err)
+		if enableVirtualMachinePerfMetrics {
+			err = perfCollector.collect("Virtual Machine", "ESXVirtualMachineSample", vmCounters)
+			if err != nil {
+				log.Error("failed to collect Virtual Machine metrics: %v", err)
+			}
+		} else {
+			err = summaryCollector.collectVMMetrics("ESXVirtualMachineSample")
+			if err != nil {
+				log.Error("failed to collect Virtual Machine metrics: %v", err)
+			}
 		}
 
-		err = collector.collect("Resource Pool", "ESXResourcePoolSample", rpoolCounters)
-		if err != nil {
-			log.Error("failed to collect Resource Pool metrics: %v", err)
+		if enableResourcePoolPerfMetrics {
+			err = perfCollector.collect("Resource Pool", "ESXResourcePoolSample", rpoolCounters)
+			if err != nil {
+				log.Error("failed to collect Resource Pool metrics: %v", err)
+			}
+		} else {
+			err = summaryCollector.collectResourcePoolMetrics("ESXResourcePoolSample")
+			if err != nil {
+				log.Error("failed to collect Resource Pool metrics: %v", err)
+			}
 		}
 
-		err = collector.collect("Datastore", "ESXDatastoreSample", dsCounters)
-		if err != nil {
-			log.Error("failed to collect Datastore metrics: %v", err)
+		if enableDatastorePerfMetrics {
+			err = perfCollector.collect("Datastore", "ESXDatastoreSample", dsCounters)
+			if err != nil {
+				log.Error("failed to collect Datastore metrics: %v", err)
+			}
+		} else {
+			err = summaryCollector.collectDSMetrics("ESXDatastoreSample")
+			if err != nil {
+				log.Error("failed to collect Datastore metrics: %v", err)
+			}
 		}
 	}
 }

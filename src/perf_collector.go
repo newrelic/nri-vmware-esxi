@@ -15,7 +15,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
-type collector struct {
+type perfCollector struct {
 	client *govmomi.Client
 	entity *integration.Entity
 	finder *find.Finder
@@ -28,7 +28,7 @@ type collector struct {
 	hostMetricIds   []types.PerfMetricId
 }
 
-func (c *collector) initCounterMetadata() (err error) {
+func (c *perfCollector) initCounterMetadata() (err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var perfManager mo.PerformanceManager
@@ -61,7 +61,7 @@ func (c *collector) initCounterMetadata() (err error) {
 	return nil
 }
 
-func (c *collector) collect(entityType string, nrEventType string, counterList []string) error {
+func (c *perfCollector) collect(entityType string, nrEventType string, counterList []string) error {
 	missingCounters := make([]string, 0)
 	metricIds := make([]types.PerfMetricId, 0)
 	for _, fullCounterName := range counterList {
@@ -152,7 +152,7 @@ func (c *collector) collect(entityType string, nrEventType string, counterList [
 	return nil
 }
 
-func (c *collector) collectMetrics(entityType, nrEventType, name string, moref types.ManagedObjectReference, metricIds []types.PerfMetricId) error {
+func (c *perfCollector) collectMetrics(entityType, nrEventType, name string, moref types.ManagedObjectReference, metricIds []types.PerfMetricId) error {
 	ctx := context.Background()
 	log.Info(fmt.Sprintf("querying %s for %s", entityType, name))
 
