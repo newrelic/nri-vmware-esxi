@@ -44,24 +44,26 @@ Check correct functioning of the plugin by executing it from the command line
 
 ```sh
 Usage of ./bin/nr-vmware-esxi:
-  -url string
-      vSphere or vCenter SDK URL (default "https://vcenteripaddress/sdk")
-  -username string
-      The vSphere or vCenter username.
-  -password string
-      The vSphere or vCenter password.
   -datacenter string
-      Datacenter name to query for metrics. {datacenter name|default|all}. `all` will discover all available datacenters. `default` will only query the default datacenter. (default "default")
-  -config_file string
-      (Optional) Config file containing list of metric names(overrides default config)
+        Datacenter to query for metrics. {datacenter name|default|all}. all will discover all available datacenters. (default "default")
+  -url string
+        vSphere or vCenter SDK URL (default "https://vcenteripaddress/sdk")
+  -username string
+        The vSphere or vCenter username.
+  -password string
+        The vSphere or vCenter password.
   -insecure
-      Don't verify the server's certificate chain (default true)
+        Don't verify the server's certificate chain (default true)
+  -log_available_counters
+        [Trace] Log all available performance counters
   -metrics
-      Publish metrics data.
+        Publish metrics data.
   -pretty
-      Print pretty formatted JSON.
+        Print pretty formatted JSON.
+  -source_config int
+        Undocumented (default 9)
   -verbose
-      Print more information to logs.
+        Print more information to logs.
 ```
 
 ## Usage
@@ -71,6 +73,5 @@ do so use **ESXHostSystemSample** and **ESXVirtualMachineSample** event types.
 
 ## Compatibility
 
-* Supported OS: Linux
-* VMware versions: Tested with v 6.7
-
+- Supported OS: Linux
+- VMware versions: Tested with v 6.7
