@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"math"
 
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/units"
@@ -176,10 +175,6 @@ func (c *summaryCollector) collectVMMetrics(nrEventType string) error {
 		case types.VirtualMachinePowerStateSuspended:
 			_ = ms.SetMetric("powerState", 1, metric.GAUGE)
 		}
-
-		_ = ms.SetMetric("commitedStorage", math.Round(float64(vm.Summary.Storage.Committed)/(1<<20)), metric.GAUGE)
-		_ = ms.SetMetric("unCommitedStorage", math.Round(float64(vm.Summary.Storage.Uncommitted)/(1<<20)), metric.GAUGE)
-
 	}
 	return nil
 }
