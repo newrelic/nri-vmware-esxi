@@ -23,7 +23,7 @@ type argumentList struct {
 
 const (
 	integrationName              = "com.newrelic.vmware-esxi"
-	integrationVersion           = "1.4.0"
+	integrationVersion           = "1.0.7"
 	bitHostSystemPerfMetrics     = 1 // get performance metrics for host system
 	bitVirtualMachinePerfMetrics = 2 // get performance metrics for vm
 	bitDatastorePerfMetrics      = 4 // get performance metrics for datastore
