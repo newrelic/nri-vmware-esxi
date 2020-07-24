@@ -1,3 +1,6 @@
+# DEPRECATION NOTICE
+This repository has been deprecated. Use https://github.com/newrelic/nri-vsphere instead.
+
 # New Relic Infrastructure Integration for VMWare vSphere
 
 Reports status and metrics for vSphere server
